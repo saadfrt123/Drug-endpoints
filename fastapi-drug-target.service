@@ -1,0 +1,17 @@
+[Unit]
+Description=Drug-Target Graph FastAPI Service (Minimal)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/fastapi-ai
+Environment="PATH=/home/ubuntu/fastapi-ai/venv/bin"
+EnvironmentFile=/home/ubuntu/fastapi-ai/.env
+ExecStart=/home/ubuntu/fastapi-ai/venv/bin/uvicorn main:app --host 127.0.0.1 --port 8001 --workers 2
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+
