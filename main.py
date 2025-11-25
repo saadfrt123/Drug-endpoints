@@ -14,7 +14,7 @@ import importlib.util
 import logging
 import os
 import sys
-from dataclasses import asdict
+from dataclasses import asdict, is_dataclass
 from datetime import datetime
 
 # Load config from local file (deployment_minimal/config.py)
@@ -105,7 +105,7 @@ class BatchClassificationResponse(BaseModel):
 
 class AutoClassificationRequest(BaseModel):
     drug_name: str
-    limit: int = Field(default=25, ge=1, le=100)
+    limit: Optional[int] = Field(default=None, ge=1, le=500)
     additional_context: Optional[str] = None
     force_reclassify: bool = False
     only_unclassified: bool = True
@@ -197,6 +197,10 @@ async def classify_drug_target(payload: ClassificationRequest, api_key=Depends(v
         )
         if not classification:
             return ClassificationResponse(success=False, error="Classification failed")
+        if is_dataclass(classification):
+            classification = MechanismClassification(**asdict(classification))
+        elif isinstance(classification, dict):
+            classification = MechanismClassification(**classification)
         return ClassificationResponse(success=True, classification=classification)
     except Exception as exc:
         logger.error(f"Classification error: {exc}")
@@ -217,6 +221,10 @@ async def batch_classify(payload: BatchClassificationRequest, api_key=Depends(ve
                 force_reclassify=payload.force_reclassify
             )
             if classification:
+                if is_dataclass(classification):
+                    classification = MechanismClassification(**asdict(classification))
+                if isinstance(classification, dict):
+                    classification = MechanismClassification(**classification)
                 results.append(BatchClassificationResult(target=target, success=True, classification=classification))
             else:
                 results.append(BatchClassificationResult(target=target, success=False, error="Classification failed"))

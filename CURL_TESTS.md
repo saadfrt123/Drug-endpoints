@@ -93,14 +93,13 @@ curl -s -X POST http://127.0.0.1:8063/classification/auto \
   -H "Content-Type: application/json" \
   -d '{
         "drug_name": "aspirin",
-        "limit": 25,
         "additional_context": "Cyclooxygenase inhibition",
         "force_reclassify": false,
         "only_unclassified": true
       }' | jq
 ```
 
-- `limit` caps how many targets are pulled from Neo4j (default 25, max 100)
+- Omit `limit` to classify every known target; include it (e.g., `\"limit\": 50`) to chunk very large jobs.
 - `only_unclassified: true` keeps previously-classified pairs untouched; set `false` with `force_reclassify: true` to refresh stored results
 - Response shape matches the manual batch endpoint (`BatchClassificationResponse`)
 

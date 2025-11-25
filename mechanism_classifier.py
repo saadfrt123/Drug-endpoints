@@ -430,7 +430,7 @@ JSON Response:"""
     def batch_classify_drug_targets(
         self,
         drug_name: str,
-        limit: int = 25,
+        limit: Optional[int] = None,
         additional_context: str = "",
         force_reclassify: bool = False,
         only_unclassified: bool = True,
@@ -447,19 +447,28 @@ JSON Response:"""
                 where_clause = ""
                 if only_unclassified and not force_reclassify:
                     where_clause = "WHERE r.classified IS NULL OR r.classified = false"
-                
-                query = f"""
-                    MATCH (d:Drug {{name: $drug_name}})-[r:TARGETS]->(t:Target)
-                    {where_clause}
-                    RETURN t.name as target_name
-                    ORDER BY t.name
-                    LIMIT $limit
-                """
-                
+
+                query_lines = [
+                    "MATCH (d:Drug {name: $drug_name})-[r:TARGETS]->(t:Target)"
+                ]
+                if where_clause:
+                    query_lines.append(where_clause)
+                query_lines.extend([
+                    "RETURN t.name as target_name",
+                    "ORDER BY t.name"
+                ])
+                if limit:
+                    query_lines.append("LIMIT $limit")
+
+                query = "\n".join(query_lines)
+
+                params: Dict[str, Any] = {"drug_name": drug_name}
+                if limit:
+                    params["limit"] = limit
+
                 result = session.run(
                     query,
-                    drug_name=drug_name,
-                    limit=limit
+                    **params
                 )
                 
                 targets = [record["target_name"] for record in result]
