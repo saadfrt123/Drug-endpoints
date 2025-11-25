@@ -72,6 +72,18 @@ class HealthResponse(BaseModel):
     environment: str
 
 
+# Pydantic model version of MechanismClassification for FastAPI responses
+class MechanismClassificationModel(BaseModel):
+    relationship_type: str
+    target_class: str
+    target_subclass: str
+    mechanism: str
+    confidence: float
+    reasoning: str
+    source: str
+    timestamp: str
+
+
 class ClassificationRequest(BaseModel):
     drug_name: str
     target_name: str
@@ -81,7 +93,7 @@ class ClassificationRequest(BaseModel):
 
 class ClassificationResponse(BaseModel):
     success: bool
-    classification: Optional[MechanismClassification] = None
+    classification: Optional[MechanismClassificationModel] = None
     error: Optional[str] = None
 
 
@@ -95,7 +107,7 @@ class BatchClassificationRequest(BaseModel):
 class BatchClassificationResult(BaseModel):
     target: str
     success: bool
-    classification: Optional[MechanismClassification] = None
+    classification: Optional[MechanismClassificationModel] = None
     error: Optional[str] = None
 
 
@@ -197,10 +209,13 @@ async def classify_drug_target(payload: ClassificationRequest, api_key=Depends(v
         )
         if not classification:
             return ClassificationResponse(success=False, error="Classification failed")
+        # Convert dataclass or dict to Pydantic model
         if is_dataclass(classification):
-            classification = MechanismClassification(**asdict(classification))
+            classification = MechanismClassificationModel(**asdict(classification))
         elif isinstance(classification, dict):
-            classification = MechanismClassification(**classification)
+            classification = MechanismClassificationModel(**classification)
+        else:
+            classification = MechanismClassificationModel(**asdict(classification))
         return ClassificationResponse(success=True, classification=classification)
     except Exception as exc:
         logger.error(f"Classification error: {exc}")
@@ -221,10 +236,13 @@ async def batch_classify(payload: BatchClassificationRequest, api_key=Depends(ve
                 force_reclassify=payload.force_reclassify
             )
             if classification:
+                # Convert dataclass or dict to Pydantic model
                 if is_dataclass(classification):
-                    classification = MechanismClassification(**asdict(classification))
-                if isinstance(classification, dict):
-                    classification = MechanismClassification(**classification)
+                    classification = MechanismClassificationModel(**asdict(classification))
+                elif isinstance(classification, dict):
+                    classification = MechanismClassificationModel(**classification)
+                else:
+                    classification = MechanismClassificationModel(**asdict(classification))
                 results.append(BatchClassificationResult(target=target, success=True, classification=classification))
             else:
                 results.append(BatchClassificationResult(target=target, success=False, error="Classification failed"))
@@ -242,7 +260,8 @@ async def classification_status(drug_name: str, target_name: str, api_key=Depend
         classification = classifier.get_existing_classification(drug_name, target_name)
         classification_obj = None
         if classification:
-            classification_obj = MechanismClassification(**classification)
+            # Convert dict to Pydantic model
+            classification_obj = MechanismClassificationModel(**classification)
         return ClassificationResponse(success=classification_obj is not None, classification=classification_obj)
     except Exception as exc:
         logger.error(f"Status check error: {exc}")
@@ -276,7 +295,8 @@ async def auto_classify_targets(payload: AutoClassificationRequest, api_key=Depe
                     or "unknown"
                 ).strip()
 
-                classification = MechanismClassification(
+                # Create classification Pydantic model directly from normalized data
+                classification = MechanismClassificationModel(
                     relationship_type=str(normalized_item.get("relationship_type", "Unknown")).strip(),
                     target_class=str(normalized_item.get("target_class", "Unknown")).strip(),
                     target_subclass=str(normalized_item.get("target_subclass", "Unknown")).strip(),
